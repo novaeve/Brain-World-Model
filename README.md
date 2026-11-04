@@ -9,8 +9,8 @@ Brain World Model 当前版本 **Cajal** 的项目主页：实验进展、持久
 ```
 index.html          页面骨架：Hero · 01 Benchmark · 02 差距 · 03 Loss K 线 · 04 架构 · 05 进展快报
 styles.css          与 nanoBrain 官网同一套设计变量，自动适配浅色 / 深色
-app.js              读取 data/ 并渲染斩杀线图、结果表、差距条和快报（无外部依赖）
-data/benchmark.json 零样本评估结果：每个方法一行，每个指标一列（来自 Cajal 的 eval_zero_shot.py）
+app.js              读取 data/ 并渲染斩杀线图、结果表、差距条、loss K 线和快报（无外部依赖）
+data/benchmark.json 零样本评估结果：每个方法一行，每个指标一列
 data/loss.json      预训练 loss 的 K 线：每 500 步一根（开、高、低、收）
 data/news.json      进展快报，只追加
 assets/logo.svg
