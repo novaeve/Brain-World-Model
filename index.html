@@ -15,10 +15,11 @@
     <nav class="nav" aria-label="主导航">
       <a href="#bench">Benchmark</a>
       <a href="#gap">差距</a>
+      <a href="#loss">训练曲线</a>
       <a href="#arch">架构</a>
       <a href="#news">进展快报</a>
     </nav>
-    <a class="btn btn-sm" href="https://github.com/Minions-Land/Cajal" target="_blank" rel="noopener">代码 ↗</a>
+    <a class="btn btn-sm" href="#news">最新进展</a>
   </div>
 </header>
 
@@ -72,9 +73,20 @@
   </div>
 </section>
 
-<section id="arch" class="block">
+<section id="loss" class="block">
   <div class="wrap">
-    <p class="kicker">03 · 当前模型架构</p>
+    <p class="kicker">03 · 预训练 Loss 曲线</p>
+    <h2>五个目标一起往下走。</h2>
+    <p class="sub">Cajal 联合预训练 3 万步的 loss，像看大盘 K 线一样看：每根蜡烛是 500 步，开盘、最高、最低、收盘分别是这 500 步里第一个、最大、最小、最后一个记录的 loss；折线是 5 根蜡烛的移动平均。纵轴为对数刻度。</p>
+    <div class="legend"><span><i style="background:var(--down)"></i>下降（loss 变好）</span><span><i style="background:var(--up)"></i>上升</span><span><i class="ma"></i>MA5</span></div>
+    <div class="kline-grid" id="kline-grid"></div>
+    <p class="foot" id="loss-foot"></p>
+  </div>
+</section>
+
+<section id="arch" class="block alt">
+  <div class="wrap">
+    <p class="kicker">04 · 当前模型架构</p>
     <h2>Cell × Gene 表上的循环混合专家编码器。</h2>
     <p class="sub">注意力只在每个细胞自己的基因 token 之间做；每个 block 是注意力 + DeepSeek 式混合专家，带 N-BEATS 残差。中间两层循环 2–6 次，评估时 4 次。</p>
     <figure class="arch-fig">
@@ -112,9 +124,9 @@
   </div>
 </section>
 
-<section id="news" class="block alt">
+<section id="news" class="block">
   <div class="wrap">
-    <p class="kicker">04 · 进展快报</p>
+    <p class="kicker">05 · 进展快报</p>
     <h2>阶段性进展，最新的在最上面。</h2>
     <p class="sub">只追加、不改写：每条快报记录当天的事实和数字。</p>
     <div class="feed" id="feed" tabindex="0" aria-label="进展快报，可滚动"></div>

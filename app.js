@@ -97,6 +97,41 @@ function renderGap(bench) {
   }).join("");
 }
 
+function kline(series, window) {
+  const cs = series.candles;
+  const W = 340, H = 180, L = 40, R = 6, T = 6, B = 20;
+  const lo = Math.log10(Math.min(...cs.map((c) => c[3])) * 0.97), hi = Math.log10(Math.max(...cs.map((c) => c[2])) * 1.03);
+  const y = (v) => T + (H - T - B) * (1 - (Math.log10(v) - lo) / (hi - lo));
+  const step = (W - L - R) / cs.length, x = (i) => L + step * (i + 0.5);
+  let svg = "";
+  for (let t = 0; t <= 4; t++) {
+    const v = 10 ** (lo + ((hi - lo) * t) / 4);
+    const lab = v >= 100 ? v.toFixed(0) : v >= 1 ? v.toFixed(2) : v.toFixed(3);
+    svg += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="tk" x="${L - 4}" y="${y(v) + 3}" text-anchor="end">${lab}</text>`;
+  }
+  cs.forEach(([s, o, h, l, c], i) => {
+    const cls = c <= o ? "down" : "up", bw = Math.max(step * 0.62, 1.5);
+    const top = y(Math.max(o, c)), bot = y(Math.min(o, c));
+    svg += `<g class="${cls}"><title>${s}–${s + window} 步　开 ${o} 高 ${h} 低 ${l} 收 ${c}</title><line x1="${x(i)}" x2="${x(i)}" y1="${y(h)}" y2="${y(l)}" stroke-width="1"/><rect x="${x(i) - bw / 2}" y="${top}" width="${bw}" height="${Math.max(bot - top, 1)}"/></g>`;
+  });
+  const ma = cs.map((_, i) => (i < 4 ? null : cs.slice(i - 4, i + 1).reduce((a, c) => a + c[4], 0) / 5));
+  svg += `<polyline class="ma" points="${ma.map((v, i) => (v == null ? "" : `${x(i)},${y(v)}`)).filter(Boolean).join(" ")}"/>`;
+  [0, 10000, 20000, 30000].forEach((s) => {
+    const i = Math.min(cs.length - 1, Math.round(s / window));
+    svg += `<text class="tk" x="${x(i)}" y="${H - 5}" text-anchor="middle">${s / 10000 ? s / 10000 + " 万" : "0"}</text>`;
+  });
+  const first = cs[0][4], last = cs[cs.length - 1][4];
+  const p = el("div", { class: "kpanel" });
+  p.innerHTML = `<h3>${esc(series.name)}<em>${last < 10 ? last.toFixed(3) : last.toFixed(0)}<small>${((last / first - 1) * 100).toFixed(0)}%</small></em></h3><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(series.name)} loss K 线：从 ${first} 到 ${last}">${svg}</svg>`;
+  return p;
+}
+
+function renderLoss(loss) {
+  const grid = document.getElementById("kline-grid");
+  loss.series.forEach((s) => grid.appendChild(kline(s, loss.window)));
+  document.getElementById("loss-foot").textContent = `${loss.run} · ${loss.steps.toLocaleString()} 步 · 每 10 步记录一次 · 右上角为最后收盘值与相对第一根的变化。`;
+}
+
 function renderNews(news) {
   const posts = news.map((p, i) => ({ ...p, i })).sort((a, b) => (a.date === b.date ? a.i - b.i : a.date < b.date ? 1 : -1));
   const newest = posts.length ? posts[0].date : "";
@@ -124,9 +159,10 @@ function renderCells() {
 
 async function main() {
   renderCells();
-  const [bench, news] = await Promise.all(["data/benchmark.json", "data/news.json"].map((u) => fetch(u, { cache: "no-cache" }).then((r) => r.json())));
+  const [bench, news, loss] = await Promise.all(["data/benchmark.json", "data/news.json", "data/loss.json"].map((u) => fetch(u, { cache: "no-cache" }).then((r) => r.json())));
   renderBench(bench);
   renderGap(bench);
+  renderLoss(loss);
   renderNews(news);
   document.getElementById("gen-at").textContent = `Benchmark 更新于 ${bench.updated}`;
 }
