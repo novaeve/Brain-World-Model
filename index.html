@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brain World Model · Cajal</title>
+<meta name="description" content="Brain World Model 当前版本 Cajal：一个编码器在 100 万个人脑细胞上联合预训练五个目标，零样本评估细胞注释、脑区注释与整合，持续对照机器学习基线。">
+<link rel="icon" href="assets/logo.svg">
+<link rel="stylesheet" href="styles.css?v=1">
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-in">
+    <a class="brand" href="#"><img src="assets/logo.svg" alt=""><span>Brain World Model</span></a>
+    <nav class="nav" aria-label="主导航">
+      <a href="#bench">Benchmark</a>
+      <a href="#gap">差距</a>
+      <a href="#arch">架构</a>
+      <a href="#news">进展快报</a>
+    </nav>
+    <a class="btn btn-sm" href="https://github.com/Minions-Land/Cajal" target="_blank" rel="noopener">代码 ↗</a>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="eyebrow">Canchen Tech AI Group · Brain World Model · 当前版本代号 Cajal</p>
+      <h1><span class="nw">一个编码器，</span><br><em class="nw">读懂每一个脑细胞。</em></h1>
+      <p class="lede">Cajal 把每个细胞读成一组（基因, 表达量）token，在 100 万个人脑细胞上联合预训练五个目标：基因插补、整合、细胞类型、脑区和空间。我们在从未见过的细胞上零样本评估它，并始终和机器学习基线放在同一张表里比。</p>
+      <div class="cta">
+        <a class="btn" href="#bench">查看 Benchmark</a>
+        <a class="btn btn-ghost" href="#news">最新进展</a>
+      </div>
+    </div>
+    <figure class="hero-fig" aria-hidden="true">
+      <svg viewBox="0 0 420 360" class="cells" id="cells"></svg>
+    </figure>
+  </div>
+  <div class="wrap stats">
+    <div><b>94M</b><span>参数</span></div>
+    <div><b>1.0M</b><span>预训练细胞</span></div>
+    <div><b>5</b><span>联合预训练目标</span></div>
+    <div><b>9,960</b><span>零样本评估细胞</span></div>
+    <div><b>0.811</b><span>细级细胞类型 F1</span></div>
+    <div><b>3.4×</b><span>训练提速（infra）</span></div>
+  </div>
+</section>
+
+<section id="bench" class="block">
+  <div class="wrap">
+    <p class="kicker">01 · Benchmark</p>
+    <h2>同一批没见过的细胞，同一套评估器。</h2>
+    <p class="sub">eval_10k：9,960 个从未参与预训练的细胞，均衡覆盖 149 个细胞类型、81 个脑结构、45 个数据集、10 个测序平台。Cajal 不在这些细胞上做任何微调；机器学习基线用同一份预训练标签训练。每个面板里的虚线是要越过的“斩杀线”。</p>
+    <div class="legend" id="bench-legend"></div>
+    <div class="kill-grid" id="kill-grid"></div>
+    <div class="note"><b>如何读</b>注释任务的斩杀线是两个机器学习基线（实线 XGBoost、虚线逻辑回归），整合任务的是未整合 PCA。整合指标用 scib-metrics 的 k-means 聚类，重复评分会有约 ±0.002 的波动。</div>
+    <div class="table-wrap">
+      <table class="board" id="bench-table"></table>
+    </div>
+    <p class="foot" id="bench-foot"></p>
+  </div>
+</section>
+
+<section id="gap" class="block alt">
+  <div class="wrap">
+    <p class="kicker">02 · 与机器学习模型的差距</p>
+    <h2>Cajal 领先最强基线多少。</h2>
+    <p class="sub">每一行是 Cajal 当前最好 checkpoint 减去同一指标下最强的机器学习基线（注释取 XGBoost 与逻辑回归中较高者，整合取未整合 PCA）。向右为领先。</p>
+    <div class="gap" id="gap-bars"></div>
+  </div>
+</section>
+
+<section id="arch" class="block">
+  <div class="wrap">
+    <p class="kicker">03 · 当前模型架构</p>
+    <h2>Cell × Gene 表上的循环混合专家编码器。</h2>
+    <p class="sub">注意力只在每个细胞自己的基因 token 之间做；每个 block 是注意力 + DeepSeek 式混合专家，带 N-BEATS 残差。中间两层循环 2–6 次，评估时 4 次。</p>
+    <figure class="arch-fig">
+      <svg viewBox="0 0 960 330" role="img" aria-labelledby="arch-t arch-d">
+        <title id="arch-t">Cajal 架构</title>
+        <desc id="arch-d">细胞 token 经嵌入后依次通过 Prelude 两层、循环的 Core 两层和 Coda 两层，CLS 得到潜变量，再接细胞类型、脑区、负二项解码器和邻域模型；基因头读取被遮住的 token。</desc>
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ar"/></marker></defs>
+        <g class="nd"><rect x="10" y="125" width="130" height="80" rx="12"/><text x="75" y="155">一个细胞</text><text x="75" y="176" class="s">CLS + 已测基因</text><text x="75" y="194" class="s">(基因 ID, 表达量)</text></g>
+        <g class="nd"><rect x="170" y="125" width="110" height="80" rx="12"/><text x="225" y="160">嵌入</text><text x="225" y="182" class="s">基因 + 数值 + 掩码</text></g>
+        <g class="nd blk"><rect x="310" y="125" width="110" height="80" rx="12"/><text x="365" y="160">Prelude × 2</text><text x="365" y="182" class="s">第 1 层哈希路由</text></g>
+        <g class="nd blk loop"><rect x="450" y="125" width="120" height="80" rx="12"/><text x="510" y="160">Core × 2</text><text x="510" y="182" class="s">循环 2–6 次</text></g>
+        <path d="M480,125 C480,85 540,85 540,125" class="lk" marker-end="url(#ar)"/><text x="510" y="80" class="s">重注入 token</text>
+        <g class="nd blk"><rect x="600" y="125" width="100" height="80" rx="12"/><text x="650" y="160">Coda × 2</text><text x="650" y="182" class="s">12 次 block 调用</text></g>
+        <g class="nd lat"><rect x="735" y="125" width="85" height="80" rx="12"/><text x="777" y="160">μ, σ²</text><text x="777" y="182" class="s">z = 64</text></g>
+        <g class="nd hd"><rect x="855" y="20" width="100" height="50" rx="10"/><text x="905" y="42">细胞类型</text><text x="905" y="60" class="s">22 → 167</text></g>
+        <g class="nd hd"><rect x="855" y="85" width="100" height="50" rx="10"/><text x="905" y="107">脑区</text><text x="905" y="125" class="s">8 → 91</text></g>
+        <g class="nd hd"><rect x="855" y="150" width="100" height="50" rx="10"/><text x="905" y="172">NB 解码器</text><text x="905" y="190" class="s">整合</text></g>
+        <g class="nd hd"><rect x="855" y="215" width="100" height="50" rx="10"/><text x="905" y="237">邻域模型</text><text x="905" y="255" class="s">空间插补</text></g>
+        <g class="nd hd"><rect x="600" y="250" width="100" height="50" rx="10"/><text x="650" y="272">基因头</text><text x="650" y="290" class="s">被遮的基因</text></g>
+        <path d="M140,165 H168" class="lk" marker-end="url(#ar)"/><path d="M280,165 H308" class="lk" marker-end="url(#ar)"/>
+        <path d="M420,165 H448" class="lk" marker-end="url(#ar)"/><path d="M570,165 H598" class="lk" marker-end="url(#ar)"/>
+        <path d="M700,165 H733" class="lk" marker-end="url(#ar)"/><path d="M650,205 V248" class="lk" marker-end="url(#ar)"/>
+        <path d="M820,155 C840,155 835,45 853,45" class="lk" marker-end="url(#ar)"/><path d="M820,160 C840,160 835,110 853,110" class="lk" marker-end="url(#ar)"/>
+        <path d="M820,170 C840,170 835,175 853,175" class="lk" marker-end="url(#ar)"/><path d="M820,180 C840,180 835,240 853,240" class="lk" marker-end="url(#ar)"/>
+      </svg>
+    </figure>
+    <div class="spec">
+      <div><b>注意力</b><p>FlashAttention-3 变长，4 头 × 64 维；每个细胞一条序列，不跨细胞、无 padding。</p></div>
+      <div><b>混合专家</b><p>32 个路由专家选 4 个 + 1 个共享专家；sqrt-softplus 路由，无辅助 loss 的偏置均衡；第一层按基因 ID 哈希路由。</p></div>
+      <div><b>五个目标</b><p>基因插补、scVI 式整合、层级细胞类型、层级脑区、空间邻居插补；各 loss 按初始均值归一后等权。</p></div>
+      <div><b>优化</b><p>隐藏层矩阵用分组 Muon，其余 AdamW；每步 128 个解离细胞 + 16 个空间组，约 31 万 token。</p></div>
+      <div><b>Infra</b><p>单张 H20 上每步 2.90 → 0.85 秒，MFU 约 16% → 50%；推理 1 万细胞约 18 秒。</p></div>
+      <div><b>规模</b><p>9,400 万参数；d = 256，2 + 2×循环 + 2 层，潜变量 64 维。</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="news" class="block alt">
+  <div class="wrap">
+    <p class="kicker">04 · 进展快报</p>
+    <h2>阶段性进展，最新的在最上面。</h2>
+    <p class="sub">只追加、不改写：每条快报记录当天的事实和数字。</p>
+    <div class="feed" id="feed" tabindex="0" aria-label="进展快报，可滚动"></div>
+  </div>
+</section>
+</main>
+
+<footer class="foot-site">
+  <div class="wrap foot-in">
+    <span class="brand"><img src="assets/logo.svg" alt=""><span>Brain World Model</span></span>
+    <span>Canchen Tech AI Group · 以圣地亚哥·拉蒙-卡哈尔命名：他最先把大脑画成由一个个细胞组成的世界</span>
+    <span id="gen-at"></span>
+  </div>
+</footer>
+
+<script src="app.js?v=1"></script>
+</body>
+</html>
