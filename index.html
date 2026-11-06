@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Brain World Model · Cajal</title>
-<meta name="description" content="Brain World Model 当前版本 Cajal：一个编码器在 100 万个人脑细胞上联合预训练五个目标，零样本评估细胞注释、脑区注释与整合，持续对照机器学习基线。">
+<meta name="description" content="Brain World Model 当前版本 Cajal：一个编码器在 100 万个人脑细胞上联合预训练五个任务，在未见过的细胞上与每个任务最强的对手比较。">
 <link rel="icon" href="assets/logo.svg">
-<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
 <header class="top">
@@ -15,7 +15,8 @@
     <nav class="nav" aria-label="主导航">
       <a href="#bench">Benchmark</a>
       <a href="#gap">差距</a>
-      <a href="#loss">训练曲线</a>
+      <a href="#optim">优化</a>
+      <a href="#exp">实验</a>
       <a href="#arch">架构</a>
       <a href="#news">进展快报</a>
     </nav>
@@ -29,7 +30,7 @@
     <div>
       <p class="eyebrow">Canchen Tech AI Group · Brain World Model · 当前版本代号 Cajal</p>
       <h1><span class="nw">一个编码器，</span><br><em class="nw">读懂每一个脑细胞。</em></h1>
-      <p class="lede">Cajal 把每个细胞读成一组（基因, 表达量）token，在 100 万个人脑细胞上联合预训练五个目标：基因插补、整合、细胞类型、脑区和空间。我们在从未见过的细胞上零样本评估它，并始终和机器学习基线放在同一张表里比。</p>
+      <p class="lede">Cajal 把每个细胞读成一组（基因, 表达量）token，在 100 万个人脑细胞上联合预训练五个任务：细胞类型、脑区、整合、基因插补和空间插补。评估在预训练没见过的细胞上做，对手是每个任务上最强的专用方法。</p>
       <div class="cta">
         <a class="btn" href="#bench">查看 Benchmark</a>
         <a class="btn btn-ghost" href="#news">最新进展</a>
@@ -42,53 +43,86 @@
   <div class="wrap stats">
     <div><b>94M</b><span>参数</span></div>
     <div><b>1.0M</b><span>预训练细胞</span></div>
-    <div><b>5</b><span>联合预训练目标</span></div>
-    <div><b>9,960</b><span>零样本评估细胞</span></div>
-    <div><b>0.811</b><span>细级细胞类型 F1</span></div>
-    <div><b>3.4×</b><span>训练提速（infra）</span></div>
+    <div><b>5</b><span>联合预训练任务</span></div>
+    <div><b>60,616</b><span>评估细胞（3 个评估集）</span></div>
+    <div><b>0.806</b><span>细级细胞类型 F1（v1）</span></div>
+    <div><b>0.426</b><span>去批次（v1，v0 为 0.262）</span></div>
   </div>
 </section>
 
 <section id="bench" class="block">
   <div class="wrap">
     <p class="kicker">01 · Benchmark</p>
-    <h2>同一批没见过的细胞，同一套评估器。</h2>
-    <p class="sub">eval_10k：9,960 个从未参与预训练的细胞，均衡覆盖 149 个细胞类型、81 个脑结构、45 个数据集、10 个测序平台。Cajal 不在这些细胞上做任何微调；机器学习基线用同一份预训练标签训练。每个面板里的虚线是要越过的“斩杀线”。</p>
+    <h2>五个任务，各对最强的对手。</h2>
+    <p class="sub">零样本评估，不做微调。红色实线是该指标上最强的对手，虚线是第二强。</p>
     <div class="legend" id="bench-legend"></div>
     <div class="kill-grid" id="kill-grid"></div>
-    <div class="note"><b>如何读</b>注释任务的斩杀线是两个机器学习基线（实线 XGBoost、虚线逻辑回归），整合任务的是未整合 PCA。整合指标用 scib-metrics 的 k-means 聚类，重复评分会有约 ±0.002 的波动。</div>
     <div class="table-wrap">
       <table class="board" id="bench-table"></table>
     </div>
     <p class="foot" id="bench-foot"></p>
+    <h3 class="h3">任务与评估</h3>
+    <div class="table-wrap">
+      <table class="board tasks">
+        <thead><tr><th>任务</th><th>预训练目标</th><th>评估</th><th>对手</th></tr></thead>
+        <tbody>
+          <tr><td>细胞类型</td><td>层级分类头，22 → 167 类</td><td>eval_10k，细级 Macro-F1</td><td>XGBoost、逻辑回归、scANVI</td></tr>
+          <tr><td>脑区</td><td>层级分类头，8 → 91 个结构</td><td>eval_10k，细级 Macro-F1</td><td>XGBoost、逻辑回归、scANVI</td></tr>
+          <tr><td>整合</td><td>scVI 式负二项重建 + KL</td><td>eval_integration_10k，scib-metrics 生物保留 / 去批次</td><td>scVI、scANVI、未整合 PCA</td></tr>
+          <tr><td>基因插补</td><td>遮住 15% 的基因，由基因头补全</td><td>eval_10k，单细胞 Pearson</td><td>同 panel kNN、基因均值</td></tr>
+          <tr><td>空间插补</td><td>隐藏一个细胞，由 16 个邻居重建</td><td>eval_spatial，单细胞 Pearson</td><td>邻居平均</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="foot">三个评估集与预训练集、彼此之间都不重叠。eval_integration_10k 的每个细胞类型至少由 3 个批次共有，批次与生物学不混淆。机器学习对手用同样 2,000 个高变基因和同一份预训练标签。</p>
   </div>
 </section>
 
 <section id="gap" class="block alt">
   <div class="wrap">
-    <p class="kicker">02 · 与机器学习模型的差距</p>
-    <h2>Cajal 领先最强基线多少。</h2>
-    <p class="sub">每一行是 Cajal 当前最好 checkpoint 减去同一指标下最强的机器学习基线（注释取 XGBoost 与逻辑回归中较高者，整合取未整合 PCA）。向右为领先。</p>
+    <p class="kicker">02 · 与最强对手的差距</p>
+    <h2 id="gap-sum">Cajal v1 与最强对手的差距。</h2>
+    <p class="sub">Cajal v1（3 万步）减去每个指标上最强的对手，向右为领先。</p>
     <div class="gap" id="gap-bars"></div>
   </div>
 </section>
 
-<section id="loss" class="block">
+<section id="optim" class="block">
   <div class="wrap">
-    <p class="kicker">03 · 预训练 Loss 曲线</p>
-    <h2>五个目标一起往下走。</h2>
-    <p class="sub">Cajal 联合预训练 3 万步的 loss，像看大盘 K 线一样看：每根蜡烛是 500 步，开盘、最高、最低、收盘分别是这 500 步里第一个、最大、最小、最后一个记录的 loss；折线是 5 根蜡烛的移动平均。纵轴为对数刻度。</p>
-    <div class="legend"><span><i style="background:var(--down)"></i>下降（loss 变好）</span><span><i style="background:var(--up)"></i>上升</span><span><i class="ma"></i>MA5</span></div>
+    <p class="kicker">03 · 优化：v0 → v1</p>
+    <h2>架构没变，变的是五个 loss 怎么配。</h2>
+    <p class="sub">v0 把每个 loss 除以它前 200 步的均值后相加；v1 让每个 loss 在编码器上的梯度范数相同（grad_equal，每 50 步测一次）。下图是每 500 步测得的各任务实际梯度份额。</p>
+    <div class="legend" id="share-legend"></div>
+    <div class="share-grid" id="share-grid"></div>
+    <div class="facts">
+      <div><b>1.7% → 20%</b><span>整合拿到的梯度份额（1 千步后平均）</span></div>
+      <div><b>50% → 20%</b><span>基因插补的梯度份额</span></div>
+      <div><b>0.262 → 0.426</b><span>去批次（3 万步）</span></div>
+      <div><b>84 → 25</b><span>训练结束时的 KL（nats）</span></div>
+    </div>
+    <h3 class="h3">训练 loss</h3>
+    <div class="legend"><span><i style="background:var(--down)"></i>v1 下降</span><span><i style="background:var(--up)"></i>v1 上升</span><span><i class="ma"></i>v1 MA5</span><span><i class="ma0"></i>v0 MA5</span></div>
     <div class="kline-grid" id="kline-grid"></div>
-    <p class="foot" id="loss-foot"></p>
+    <p class="foot">每根蜡烛 500 步（开、高、低、收），纵轴对数刻度。右上角为最后收盘值。</p>
   </div>
 </section>
 
-<section id="arch" class="block alt">
+<section id="exp" class="block alt">
   <div class="wrap">
-    <p class="kicker">04 · 当前模型架构</p>
+    <p class="kicker">04 · 实验记录</p>
+    <h2>每个方法只改一个变量，训到 1 万步。</h2>
+    <p class="sub">学习率按 3 万步的日程走、在 1 万步停下，五个任务一起评估。小字是相对参照的差，超过 0.01 的标色。</p>
+    <div class="table-wrap">
+      <table class="board exp" id="exp-table"></table>
+    </div>
+  </div>
+</section>
+
+<section id="arch" class="block">
+  <div class="wrap">
+    <p class="kicker">05 · 模型架构</p>
     <h2>Cell × Gene 表上的循环混合专家编码器。</h2>
-    <p class="sub">注意力只在每个细胞自己的基因 token 之间做；每个 block 是注意力 + DeepSeek 式混合专家，带 N-BEATS 残差。中间两层循环 2–6 次，评估时 4 次。</p>
+    <p class="sub">v0 与 v1 架构相同。注意力只在每个细胞自己的基因 token 之间做；每个 block 是注意力 + DeepSeek 式混合专家，带 N-BEATS 残差。中间两层训练时循环 2–6 次，评估时 4 次。</p>
     <figure class="arch-fig">
       <svg viewBox="0 0 960 330" role="img" aria-labelledby="arch-t arch-d">
         <title id="arch-t">Cajal 架构</title>
@@ -116,7 +150,7 @@
     <div class="spec">
       <div><b>注意力</b><p>FlashAttention-3 变长，4 头 × 64 维；每个细胞一条序列，不跨细胞、无 padding。</p></div>
       <div><b>混合专家</b><p>32 个路由专家选 4 个 + 1 个共享专家；sqrt-softplus 路由，无辅助 loss 的偏置均衡；第一层按基因 ID 哈希路由。</p></div>
-      <div><b>五个目标</b><p>基因插补、scVI 式整合、层级细胞类型、层级脑区、空间邻居插补；各 loss 按初始均值归一后等权。</p></div>
+      <div><b>五个任务</b><p>基因插补、scVI 式整合、层级细胞类型、层级脑区、空间邻居插补；v1 起按梯度等量配平。</p></div>
       <div><b>优化</b><p>隐藏层矩阵用分组 Muon，其余 AdamW；每步 128 个解离细胞 + 16 个空间组，约 31 万 token。</p></div>
       <div><b>Infra</b><p>单张 H20 上每步 2.90 → 0.85 秒，MFU 约 16% → 50%；推理 1 万细胞约 18 秒。</p></div>
       <div><b>规模</b><p>9,400 万参数；d = 256，2 + 2×循环 + 2 层，潜变量 64 维。</p></div>
@@ -124,11 +158,10 @@
   </div>
 </section>
 
-<section id="news" class="block">
+<section id="news" class="block alt">
   <div class="wrap">
-    <p class="kicker">05 · 进展快报</p>
+    <p class="kicker">06 · 进展快报</p>
     <h2>阶段性进展，最新的在最上面。</h2>
-    <p class="sub">只追加、不改写：每条快报记录当天的事实和数字。</p>
     <div class="feed" id="feed" tabindex="0" aria-label="进展快报，可滚动"></div>
   </div>
 </section>
@@ -142,6 +175,6 @@
   </div>
 </footer>
 
-<script src="app.js?v=1"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>

@@ -1,0 +1,258 @@
+{
+ "updated": "2026-11-06",
+ "groups": [
+  {
+   "title": "以 v0 为基线（初始 loss 归一化）",
+   "ref": "v0 配方",
+   "ref_scores": {
+    "ct": 0.748,
+    "rg": 0.65,
+    "bio": 0.613,
+    "batch": 0.227,
+    "gene": 0.774,
+    "spatial": 0.263
+   },
+   "rows": [
+    {
+     "name": "梯度等量（grad_equal）",
+     "base": "v0",
+     "change": "每个 loss 在编码器上的梯度范数相同",
+     "scores": {
+      "ct": 0.75,
+      "rg": 0.646,
+      "bio": 0.632,
+      "batch": 0.357,
+      "gene": 0.773,
+      "spatial": 0.264
+     },
+     "verdict": "去批次 0.227 → 0.357，其余在波动内；成为 v1",
+     "status": "adopted"
+    },
+    {
+     "name": "FAMO",
+     "base": "v0",
+     "change": "按各 loss 的对数下降速度动态配权",
+     "scores": {
+      "ct": 0.766,
+      "rg": 0.626,
+      "bio": 0.645,
+      "batch": 0.258,
+      "gene": 0.776,
+      "spatial": 0.262
+     },
+     "verdict": "去批次几乎没动",
+     "status": "dropped"
+    },
+    {
+     "name": "teacher_gram",
+     "base": "v0",
+     "change": "对齐一个只训细胞类型的老师的细胞相似度矩阵",
+     "scores": {
+      "ct": 0.769,
+      "rg": 0.636,
+      "bio": 0.763,
+      "batch": 0.321,
+      "gene": 0.775,
+      "spatial": 0.271
+     },
+     "verdict": "生物保留 +0.15；叠加到 grad_equal 上继续测",
+     "status": "candidate"
+    },
+    {
+     "name": "去掉 KL",
+     "base": "v0",
+     "change": "整合目标不加 KL",
+     "scores": {
+      "ct": 0.734,
+      "rg": 0.652,
+      "bio": 0.617,
+      "batch": 0.222,
+      "gene": 0.776,
+      "spatial": 0.268
+     },
+     "verdict": "无改善",
+     "status": "dropped"
+    },
+    {
+     "name": "混合高斯先验",
+     "base": "v0",
+     "change": "潜变量先验换成可学习的混合高斯",
+     "scores": {
+      "ct": 0.745,
+      "rg": 0.656,
+      "bio": 0.63,
+      "batch": 0.221,
+      "gene": 0.776,
+      "spatial": 0.271
+     },
+     "verdict": "去批次无改善",
+     "status": "dropped"
+    },
+    {
+     "name": "SIGReg",
+     "base": "v0",
+     "change": "潜变量各向同性高斯正则（LeJEPA）",
+     "scores": {
+      "ct": 0.732,
+      "rg": 0.629,
+      "bio": 0.549,
+      "batch": 0.207,
+      "gene": 0.775,
+      "spatial": 0.271
+     },
+     "verdict": "生物保留下降",
+     "status": "dropped"
+    },
+    {
+     "name": "批次反事实",
+     "base": "v0",
+     "change": "换批次解码再编码，要求潜变量不变",
+     "scores": {
+      "ct": 0.713,
+      "rg": 0.615,
+      "bio": 0.578,
+      "batch": 0.201,
+      "gene": 0.772,
+      "spatial": 0.26
+     },
+     "verdict": "全面下降",
+     "status": "dropped"
+    }
+   ]
+  },
+  {
+   "title": "以 grad_equal（v1 配方）为基线",
+   "ref": "grad_equal",
+   "ref_scores": {
+    "ct": 0.75,
+    "rg": 0.646,
+    "bio": 0.632,
+    "batch": 0.357,
+    "gene": 0.773,
+    "spatial": 0.264
+   },
+   "rows": [
+    {
+     "name": "+ teacher_gram",
+     "base": "grad_equal",
+     "change": "同上，加在 grad_equal 上",
+     "scores": {
+      "ct": 0.761,
+      "rg": 0.637,
+      "bio": 0.711,
+      "batch": 0.379,
+      "gene": 0.775,
+      "spatial": 0.268
+     },
+     "verdict": "生物保留 0.711、去批次 0.380，其余持平；3 万步验证中",
+     "status": "candidate"
+    },
+    {
+     "name": "整合 ×2",
+     "base": "grad_equal",
+     "change": "整合 loss 的梯度份额加倍",
+     "scores": {
+      "ct": 0.73,
+      "rg": 0.626,
+      "bio": 0.636,
+      "batch": 0.402,
+      "gene": 0.773,
+      "spatial": 0.268
+     },
+     "verdict": "去批次 +0.045，注释 −0.02；3 万步验证中",
+     "status": "candidate"
+    },
+    {
+     "name": "整合 ×4",
+     "base": "grad_equal",
+     "change": "整合 loss 的梯度份额 ×4",
+     "scores": {
+      "ct": 0.697,
+      "rg": 0.593,
+      "bio": 0.62,
+      "batch": 0.443,
+      "gene": 0.772,
+      "spatial": 0.266
+     },
+     "verdict": "去批次接近 scVI，但细胞类型跌破 XGBoost",
+     "status": "dropped"
+    },
+    {
+     "name": "KL 目标 60 nats",
+     "base": "grad_equal",
+     "change": "KL 权重作为对偶变量，把 KL 稳在 60",
+     "scores": {
+      "ct": 0.77,
+      "rg": 0.649,
+      "bio": 0.647,
+      "batch": 0.359,
+      "gene": 0.774,
+      "spatial": 0.258
+     },
+     "verdict": "小幅改善，多在波动内；与 teacher_gram 组合测试中",
+     "status": "candidate"
+    },
+    {
+     "name": "KL 目标 15 nats",
+     "base": "grad_equal",
+     "change": "把 KL 压到 15",
+     "scores": {
+      "ct": 0.688,
+      "rg": 0.594,
+      "bio": 0.635,
+      "batch": 0.318,
+      "gene": 0.773,
+      "spatial": 0.264
+     },
+     "verdict": "注释、去批次都下降",
+     "status": "dropped"
+    },
+    {
+     "name": "统一解码器",
+     "base": "grad_equal",
+     "change": "三个表达出口共用一个以批次为条件的解码器",
+     "scores": {
+      "ct": 0.744,
+      "rg": 0.646,
+      "bio": 0.633,
+      "batch": 0.327,
+      "gene": 0.782,
+      "spatial": 0.267
+     },
+     "verdict": "去批次在每个评估点都更低",
+     "status": "dropped"
+    },
+    {
+     "name": "空间 loss ×3",
+     "base": "grad_equal",
+     "change": "空间任务的梯度份额 ×3",
+     "scores": {
+      "ct": 0.716,
+      "rg": 0.596,
+      "bio": 0.643,
+      "batch": 0.342,
+      "gene": 0.773,
+      "spatial": 0.269
+     },
+     "verdict": "空间几乎不动，注释下降",
+     "status": "dropped"
+    },
+    {
+     "name": "空间潜空间目标",
+     "base": "grad_equal",
+     "change": "被隐藏细胞的预测再对齐它自己的潜变量（JEPA 式）",
+     "scores": {
+      "ct": 0.743,
+      "rg": 0.642,
+      "bio": 0.636,
+      "batch": 0.361,
+      "gene": 0.774,
+      "spatial": null
+     },
+     "verdict": "空间分数待出",
+     "status": "running"
+    }
+   ]
+  }
+ ]
+}

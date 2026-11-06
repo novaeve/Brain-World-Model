@@ -1,222 +1,232 @@
 {
- "updated": "2026-11-04",
- "eval_set": {
-  "name": "eval_10k",
-  "cells": 9960,
-  "cell_types": 149,
-  "structures": 81,
-  "datasets": 45,
-  "platforms": 10
- },
+ "updated": "2026-11-06",
  "metrics": [
   {
-   "key": "ct_coarse_f1",
-   "task": "细胞注释",
-   "label": "粗级 Macro-F1"
+   "key": "ct",
+   "task": "细胞类型",
+   "label": "细级 Macro-F1",
+   "eval": "eval_10k",
+   "opponents": [
+    "XGBoost",
+    "LogReg",
+    "scANVI"
+   ]
   },
   {
-   "key": "ct_coarse_ba",
-   "task": "细胞注释",
-   "label": "粗级 平衡准确率"
+   "key": "rg",
+   "task": "脑区",
+   "label": "细级 Macro-F1",
+   "eval": "eval_10k",
+   "opponents": [
+    "XGBoost",
+    "LogReg",
+    "scANVI"
+   ]
   },
   {
-   "key": "ct_fine_f1",
-   "task": "细胞注释",
-   "label": "细级 Macro-F1"
-  },
-  {
-   "key": "ct_fine_ba",
-   "task": "细胞注释",
-   "label": "细级 平衡准确率"
-  },
-  {
-   "key": "rg_coarse_f1",
-   "task": "脑区注释",
-   "label": "粗级 Macro-F1"
-  },
-  {
-   "key": "rg_coarse_ba",
-   "task": "脑区注释",
-   "label": "粗级 平衡准确率"
-  },
-  {
-   "key": "rg_fine_f1",
-   "task": "脑区注释",
-   "label": "细级 Macro-F1"
-  },
-  {
-   "key": "rg_fine_ba",
-   "task": "脑区注释",
-   "label": "细级 平衡准确率"
-  },
-  {
-   "key": "int_bio",
+   "key": "bio",
    "task": "整合",
-   "label": "生物保留"
+   "label": "生物保留",
+   "eval": "eval_integration_10k",
+   "opponents": [
+    "scANVI",
+    "scVI",
+    "PCA"
+   ]
   },
   {
-   "key": "int_batch",
+   "key": "batch",
    "task": "整合",
-   "label": "批次校正"
+   "label": "去批次",
+   "eval": "eval_integration_10k",
+   "opponents": [
+    "scANVI",
+    "scVI",
+    "PCA"
+   ]
   },
   {
-   "key": "int_total",
-   "task": "整合",
-   "label": "总分"
+   "key": "gene",
+   "task": "基因插补",
+   "label": "单细胞 Pearson",
+   "eval": "eval_10k",
+   "opponents": [
+    "kNN",
+    "gene mean"
+   ]
+  },
+  {
+   "key": "spatial",
+   "task": "空间插补",
+   "label": "单细胞 Pearson",
+   "eval": "eval_spatial",
+   "opponents": [
+    "NM log",
+    "NM cp10k"
+   ]
   }
  ],
  "methods": [
   {
-   "id": "Cajal@10000",
-   "name": "Cajal",
-   "note": "1 万步",
-   "kind": "model",
+   "id": "v0@30000",
+   "name": "Cajal v0",
+   "note": "3 万步",
+   "kind": "prev",
    "scores": {
-    "ct_coarse_f1": 0.846,
-    "ct_coarse_ba": 0.912,
-    "ct_fine_f1": 0.758,
-    "ct_fine_ba": 0.758,
-    "rg_coarse_f1": 0.717,
-    "rg_coarse_ba": 0.709,
-    "rg_fine_f1": 0.641,
-    "rg_fine_ba": 0.643,
-    "int_bio": 0.702,
-    "int_batch": 0.397,
-    "int_total": 0.58
+    "ct": 0.811,
+    "rg": 0.766,
+    "bio": 0.61,
+    "batch": 0.262,
+    "gene": 0.789,
+    "spatial": 0.271
    }
   },
   {
-   "id": "Cajal@20000",
-   "name": "Cajal",
+   "id": "v1@10000",
+   "name": "Cajal v1",
+   "note": "1 万步",
+   "kind": "model",
+   "scores": {
+    "ct": 0.744,
+    "rg": 0.645,
+    "bio": 0.646,
+    "batch": 0.348,
+    "gene": 0.777,
+    "spatial": 0.27
+   }
+  },
+  {
+   "id": "v1@20000",
+   "name": "Cajal v1",
    "note": "2 万步",
    "kind": "model",
    "scores": {
-    "ct_coarse_f1": 0.888,
-    "ct_coarse_ba": 0.937,
-    "ct_fine_f1": 0.8,
-    "ct_fine_ba": 0.804,
-    "rg_coarse_f1": 0.797,
-    "rg_coarse_ba": 0.807,
-    "rg_fine_f1": 0.737,
-    "rg_fine_ba": 0.731,
-    "int_bio": 0.694,
-    "int_batch": 0.41,
-    "int_total": 0.581
+    "ct": 0.798,
+    "rg": 0.719,
+    "bio": 0.623,
+    "batch": 0.399,
+    "gene": 0.784,
+    "spatial": 0.266
    }
   },
   {
-   "id": "Cajal@30000",
-   "name": "Cajal",
+   "id": "v1@30000",
+   "name": "Cajal v1",
    "note": "3 万步",
    "kind": "model",
    "scores": {
-    "ct_coarse_f1": 0.893,
-    "ct_coarse_ba": 0.945,
-    "ct_fine_f1": 0.811,
-    "ct_fine_ba": 0.814,
-    "rg_coarse_f1": 0.802,
-    "rg_coarse_ba": 0.812,
-    "rg_fine_f1": 0.767,
-    "rg_fine_ba": 0.761,
-    "int_bio": 0.69,
-    "int_batch": 0.424,
-    "int_total": 0.584
-   }
-  },
-  {
-   "id": "v0@10000",
-   "name": "BrainWM v0",
-   "note": "1 万步",
-   "kind": "prev",
-   "scores": {
-    "ct_coarse_f1": 0.857,
-    "ct_coarse_ba": 0.902,
-    "ct_fine_f1": 0.73,
-    "ct_fine_ba": 0.739,
-    "rg_coarse_f1": 0.73,
-    "rg_coarse_ba": 0.727,
-    "rg_fine_f1": 0.652,
-    "rg_fine_ba": 0.652,
-    "int_bio": 0.703,
-    "int_batch": 0.413,
-    "int_total": 0.587
-   }
-  },
-  {
-   "id": "v0@16000",
-   "name": "BrainWM v0",
-   "note": "1.6 万步",
-   "kind": "prev",
-   "scores": {
-    "ct_coarse_f1": 0.869,
-    "ct_coarse_ba": 0.901,
-    "ct_fine_f1": 0.775,
-    "ct_fine_ba": 0.783,
-    "rg_coarse_f1": 0.743,
-    "rg_coarse_ba": 0.727,
-    "rg_fine_f1": 0.711,
-    "rg_fine_ba": 0.703,
-    "int_bio": 0.704,
-    "int_batch": 0.425,
-    "int_total": 0.592
-   }
-  },
-  {
-   "id": "LogReg",
-   "name": "逻辑回归",
-   "note": "cuML",
-   "kind": "ml",
-   "scores": {
-    "ct_coarse_f1": 0.764,
-    "ct_coarse_ba": 0.832,
-    "ct_fine_f1": 0.74,
-    "ct_fine_ba": 0.738,
-    "rg_coarse_f1": 0.68,
-    "rg_coarse_ba": 0.678,
-    "rg_fine_f1": 0.634,
-    "rg_fine_ba": 0.625,
-    "int_bio": null,
-    "int_batch": null,
-    "int_total": null
+    "ct": 0.806,
+    "rg": 0.755,
+    "bio": 0.618,
+    "batch": 0.426,
+    "gene": 0.787,
+    "spatial": 0.267
    }
   },
   {
    "id": "XGBoost",
    "name": "XGBoost",
-   "note": "GPU",
+   "note": "GPU，2,000 高变基因",
    "kind": "ml",
    "scores": {
-    "ct_coarse_f1": 0.795,
-    "ct_coarse_ba": 0.873,
-    "ct_fine_f1": 0.743,
-    "ct_fine_ba": 0.74,
-    "rg_coarse_f1": 0.705,
-    "rg_coarse_ba": 0.707,
-    "rg_fine_f1": 0.682,
-    "rg_fine_ba": 0.67,
-    "int_bio": null,
-    "int_batch": null,
-    "int_total": null
+    "ct": 0.743,
+    "rg": 0.682
    }
   },
   {
-   "id": "PCA (unintegrated)",
+   "id": "LogReg",
+   "name": "逻辑回归",
+   "note": "cuML，2,000 高变基因",
+   "kind": "ml",
+   "scores": {
+    "ct": 0.74,
+    "rg": 0.634
+   }
+  },
+  {
+   "id": "scANVI",
+   "name": "scANVI",
+   "note": "scvi-tools，GPU",
+   "kind": "ml",
+   "scores": {
+    "ct": 0.703,
+    "rg": 0.497,
+    "bio": 0.625,
+    "batch": 0.454
+   }
+  },
+  {
+   "id": "scVI",
+   "name": "scVI",
+   "note": "scvi-tools，GPU",
+   "kind": "ml",
+   "scores": {
+    "bio": 0.609,
+    "batch": 0.449
+   }
+  },
+  {
+   "id": "PCA",
    "name": "PCA",
    "note": "未整合",
    "kind": "ref",
    "scores": {
-    "ct_coarse_f1": null,
-    "ct_coarse_ba": null,
-    "ct_fine_f1": null,
-    "ct_fine_ba": null,
-    "rg_coarse_f1": null,
-    "rg_coarse_ba": null,
-    "rg_fine_f1": null,
-    "rg_fine_ba": null,
-    "int_bio": 0.581,
-    "int_batch": 0.314,
-    "int_total": 0.474
+    "bio": 0.581,
+    "batch": 0.267
    }
+  },
+  {
+   "id": "kNN",
+   "name": "kNN",
+   "note": "同 panel，k = 15",
+   "kind": "ml",
+   "scores": {
+    "gene": 0.7
+   }
+  },
+  {
+   "id": "gene mean",
+   "name": "基因均值",
+   "note": "预训练集",
+   "kind": "ref",
+   "scores": {
+    "gene": 0.531
+   }
+  },
+  {
+   "id": "NM log",
+   "name": "邻居平均",
+   "note": "对数空间，16 个邻居",
+   "kind": "ml",
+   "scores": {
+    "spatial": 0.368
+   }
+  },
+  {
+   "id": "NM cp10k",
+   "name": "邻居平均",
+   "note": "CP10K 空间",
+   "kind": "ref",
+   "scores": {
+    "spatial": 0.276
+   }
+  }
+ ],
+ "eval_sets": [
+  {
+   "name": "eval_10k",
+   "cells": 9960,
+   "use": "细胞类型、脑区、基因插补"
+  },
+  {
+   "name": "eval_integration_10k",
+   "cells": 9867,
+   "use": "整合"
+  },
+  {
+   "name": "eval_spatial",
+   "cells": 40789,
+   "use": "空间插补"
   }
  ]
 }
