@@ -42,12 +42,12 @@
     </figure>
   </div>
   <div class="wrap stats">
-    <div><b>94M</b><span>参数</span></div>
+    <div title="编码器 58.4M（基因嵌入 16.9M、6 个 block 41.4M）+ 预训练头 35.6M（负二项解码器 34.0M）"><b>94.0M</b><span>可学习参数</span></div>
+    <div title="混合专家 32 选 4，Core 循环 4 次，共 12 次 block 调用；循环 2–6 次时为 11–23M"><b>17M</b><span>每 token 激活参数</span></div>
+    <div title="把 Core 的 4 次循环展开成独立的层；循环 2–6 次时为 108–163M"><b>135M</b><span>循环展开等价参数</span></div>
     <div><b>1.0M</b><span>预训练细胞</span></div>
     <div><b>5</b><span>联合预训练任务</span></div>
     <div><b>60,616</b><span>评估细胞（3 个评估集）</span></div>
-    <div><b>0.806</b><span>细级细胞类型 F1（v1）</span></div>
-    <div><b>0.426</b><span>去批次（v1，v0 为 0.262）</span></div>
   </div>
 </section>
 
@@ -183,7 +183,7 @@
       <div><b>五个任务</b><p>基因插补、scVI 式整合、层级细胞类型、层级脑区、空间邻居插补；v1 起按梯度范数均衡配平。</p></div>
       <div><b>优化</b><p>隐藏层矩阵用分组 Muon，其余 AdamW；每步 128 个解离细胞 + 16 个空间组，约 31 万 token。</p></div>
       <div><b>Infra</b><p>单张 H20 上每步 2.90 → 0.85 秒，MFU 约 16% → 50%；推理 1 万细胞约 18 秒。</p></div>
-      <div><b>规模</b><p>9,400 万参数；d = 256，2 + 2×循环 + 2 层，潜变量 64 维。</p></div>
+      <div><b>规模</b><p>可学习参数 94.0M：编码器 58.4M（基因嵌入 16.9M，6 个 block 41.4M，其中路由专家 37.7M），预训练头 35.6M（负二项解码器 34.0M，主要是输出到 65,918 个基因的一层）。每个 token 激活约 17M：混合专家 32 选 4，Core 循环 4 次共 12 次 block 调用（循环 2–6 次时 11–23M）。把循环展开成独立的层，等价于 135M（108–163M）。d = 256，潜变量 64 维。</p></div>
     </div>
   </div>
 </section>
