@@ -5,7 +5,7 @@
    "key": "ct",
    "task": "细胞类型",
    "label": "细级 Macro-F1",
-   "eval": "eval_10k",
+   "eval": "注释评估集",
    "opponents": [
     "XGBoost",
     "LogReg",
@@ -16,7 +16,7 @@
    "key": "rg",
    "task": "脑区",
    "label": "细级 Macro-F1",
-   "eval": "eval_10k",
+   "eval": "注释评估集",
    "opponents": [
     "XGBoost",
     "LogReg",
@@ -27,7 +27,7 @@
    "key": "bio",
    "task": "整合",
    "label": "生物保留",
-   "eval": "eval_integration_10k",
+   "eval": "整合评估集",
    "opponents": [
     "scANVI",
     "scVI",
@@ -38,7 +38,7 @@
    "key": "batch",
    "task": "整合",
    "label": "去批次",
-   "eval": "eval_integration_10k",
+   "eval": "整合评估集",
    "opponents": [
     "scANVI",
     "scVI",
@@ -49,7 +49,7 @@
    "key": "gene",
    "task": "基因插补",
    "label": "单细胞 Pearson",
-   "eval": "eval_10k",
+   "eval": "注释评估集",
    "opponents": [
     "kNN",
     "gene mean"
@@ -59,7 +59,7 @@
    "key": "spatial",
    "task": "空间插补",
    "label": "单细胞 Pearson",
-   "eval": "eval_spatial",
+   "eval": "空间评估集",
    "opponents": [
     "NM log",
     "NM cp10k"
@@ -214,17 +214,17 @@
  ],
  "eval_sets": [
   {
-   "name": "eval_10k",
+   "name": "注释评估集",
    "cells": 9960,
    "use": "细胞类型、脑区、基因插补"
   },
   {
-   "name": "eval_integration_10k",
+   "name": "整合评估集",
    "cells": 9867,
    "use": "整合"
   },
   {
-   "name": "eval_spatial",
+   "name": "空间评估集",
    "cells": 40789,
    "use": "空间插补"
   }

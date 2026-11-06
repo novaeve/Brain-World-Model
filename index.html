@@ -6,7 +6,8 @@
 <title>Brain World Model · Cajal</title>
 <meta name="description" content="Brain World Model 当前版本 Cajal：一个编码器在 100 万个人脑细胞上联合预训练五个任务，在未见过的细胞上与每个任务最强的对手比较。">
 <link rel="icon" href="assets/logo.svg">
-<link rel="stylesheet" href="styles.css?v=2">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
 <header class="top">
@@ -66,15 +67,15 @@
       <table class="board tasks">
         <thead><tr><th>任务</th><th>预训练目标</th><th>评估</th><th>对手</th></tr></thead>
         <tbody>
-          <tr><td>细胞类型</td><td>层级分类头，22 → 167 类</td><td>eval_10k，细级 Macro-F1</td><td>XGBoost、逻辑回归、scANVI</td></tr>
-          <tr><td>脑区</td><td>层级分类头，8 → 91 个结构</td><td>eval_10k，细级 Macro-F1</td><td>XGBoost、逻辑回归、scANVI</td></tr>
-          <tr><td>整合</td><td>scVI 式负二项重建 + KL</td><td>eval_integration_10k，scib-metrics 生物保留 / 去批次</td><td>scVI、scANVI、未整合 PCA</td></tr>
-          <tr><td>基因插补</td><td>遮住 15% 的基因，由基因头补全</td><td>eval_10k，单细胞 Pearson</td><td>同 panel kNN、基因均值</td></tr>
-          <tr><td>空间插补</td><td>隐藏一个细胞，由 16 个邻居重建</td><td>eval_spatial，单细胞 Pearson</td><td>邻居平均</td></tr>
+          <tr><td>细胞类型</td><td>层级分类头，22 → 167 类</td><td>注释评估集，细级 Macro-F1</td><td>XGBoost、逻辑回归、scANVI</td></tr>
+          <tr><td>脑区</td><td>层级分类头，8 → 91 个结构</td><td>注释评估集，细级 Macro-F1</td><td>XGBoost、逻辑回归、scANVI</td></tr>
+          <tr><td>整合</td><td>scVI 式负二项重建 + KL</td><td>整合评估集，scib-metrics 生物保留 / 去批次</td><td>scVI、scANVI、未整合 PCA</td></tr>
+          <tr><td>基因插补</td><td>遮住 15% 的基因，由基因头补全</td><td>注释评估集，单细胞 Pearson</td><td>同 panel kNN、基因均值</td></tr>
+          <tr><td>空间插补</td><td>隐藏一个细胞，由 16 个邻居重建</td><td>空间评估集，单细胞 Pearson</td><td>邻居平均</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="foot">三个评估集与预训练集、彼此之间都不重叠。eval_integration_10k 的每个细胞类型至少由 3 个批次共有，批次与生物学不混淆。机器学习对手用同样 2,000 个高变基因和同一份预训练标签。</p>
+    <p class="foot">三个评估集与预训练集、彼此之间都不重叠。整合评估集 的每个细胞类型至少由 3 个批次共有，批次与生物学不混淆。机器学习对手用同样 2,000 个高变基因和同一份预训练标签。</p>
   </div>
 </section>
 
@@ -91,7 +92,27 @@
   <div class="wrap">
     <p class="kicker">03 · 优化：v0 → v1</p>
     <h2>架构没变，变的是五个 loss 怎么配。</h2>
-    <p class="sub">v0 把每个 loss 除以它前 200 步的均值后相加；v1 让每个 loss 在编码器上的梯度范数相同（grad_equal，每 50 步测一次）。下图是每 500 步测得的各任务实际梯度份额。</p>
+    <p class="sub">总损失是五个任务损失的加权和，两个版本只有权重 \(s_t\) 的算法不同。</p>
+    <div class="eq">
+      <div class="eq-main">$$\mathcal{L}=\sum_{t\in\mathcal{T}} s_t\,\mathcal{L}_t,\qquad \mathcal{T}=\{\text{gene},\ \text{int},\ \text{ct},\ \text{reg},\ \text{sp}\}$$</div>
+      <div class="eq-grid">
+        <div><b>v0 · 初始损失归一化</b>
+          $$s_t=\frac{1}{\bar{\mathcal{L}}_t},\qquad \bar{\mathcal{L}}_t=\frac{1}{200}\sum_{k=0}^{199}\mathcal{L}_t^{(k)}$$
+          <p>权重在第 200 步后固定。损失数值大的任务不一定梯度大，各任务实际拿到的梯度并不相同。</p></div>
+        <div><b>v1 · 梯度范数均衡</b>
+          $$g_t=\big\lVert\nabla_{\theta_{\text{enc}}}\mathcal{L}_t\big\rVert_2,\qquad \hat g_t\leftarrow 0.9\,\hat g_t+0.1\,g_t$$
+          $$s_t=\frac{\bar g}{\hat g_t},\qquad \bar g=\frac{1}{|\mathcal{T}|}\sum_{u\in\mathcal{T}}\frac{\hat g_u}{\bar{\mathcal{L}}_u}$$
+          <p>每 50 步对编码器参数测一次各任务的梯度范数，使 \(s_t\hat g_t=\bar g\)：每个任务对编码器的梯度一样大。\(\bar g\) 取 v0 权重下的平均梯度，总梯度的量级不变。即 GradNorm（Chen et al., 2018）取 \(\alpha=0\) 的目标，权重按比例直接求出。</p></div>
+      </div>
+      <details class="eq-tasks"><summary>五个任务损失</summary>
+        $$\mathcal{L}_{\text{gene}}=\frac{1}{|M|}\sum_{(c,g)\in M}\big(\hat v_{cg}-v_{cg}\big)^2$$
+        $$\mathcal{L}_{\text{int}}=-\log p_{\text{NB}}\big(x_c\mid \ell_c\,\rho(z_c,b_c),\,\theta\big)+\beta\,\mathrm{KL}\big(q(z\mid x_c)\,\|\,\mathcal{N}(0,I)\big)$$
+        $$\mathcal{L}_{\text{ct}}=\frac{1}{K}\sum_{k=1}^{K}\mathrm{CE}\big(y_c^{(k)},\hat y_c^{(k)}\big),\qquad \mathcal{L}_{\text{reg}}\ \text{同理}$$
+        $$\mathcal{L}_{\text{sp}}=-\frac{1}{n_i}\log p_{\text{NB}}\big(x_i\mid \ell_i\,\rho(\hat z_i,b_i),\,\theta\big)+\mathrm{CE}\big(y_i,\hat y_i\big),\qquad \hat z_i=f_{\text{nbr}}\big(\{\mu_j,\Delta p_j\}_{j\in\mathcal{N}(i)}\big)$$
+        <p>\(M\)：被遮住的 (细胞, 基因)；\(\ell\)：文库大小；\(b\)：批次；\(\beta\) 在前 5,000 步从 0 线性升到 1；\(n_i\)：被隐藏细胞的已测基因数。</p>
+      </details>
+    </div>
+    <h3 class="h3">各任务实际拿到的梯度份额</h3>
     <div class="legend" id="share-legend"></div>
     <div class="share-grid" id="share-grid"></div>
     <div class="facts">
@@ -147,10 +168,17 @@
         <path d="M820,170 C840,170 835,175 853,175" class="lk" marker-end="url(#ar)"/><path d="M820,180 C840,180 835,240 853,240" class="lk" marker-end="url(#ar)"/>
       </svg>
     </figure>
+    <h3 class="h3">Block 细节</h3>
+    <div class="blk-grid">
+      <figure class="blk-fig"><svg viewBox="0 0 320 556" role="img" aria-label="编码器堆叠"><title>编码器堆叠</title><desc>细胞 token 经嵌入，过 2 层 Prelude、循环 T 次的 2 层 Core（每次循环前加回嵌入）、2 层 Coda；各层 forecast 求和后归一化，从 CLS 读出 μ 和 log σ²。</desc><g class="bx b-io"><rect x="70" y="500" width="180" height="44" rx="8"/><text x="160.0" y="518.0">一个细胞的 token</text><text x="160.0" y="534.0" class="s">CLS + (基因 g, 表达 v)</text></g><path d="M160,500 V470" class="lk" marker-end="url(#ar)"/><g class="bx b-emb"><rect x="70" y="426" width="180" height="44" rx="8"/><text x="160.0" y="444.0">嵌入</text><text x="160.0" y="460.0" class="s">E[g] + MLP(v)；被遮：m</text></g><path d="M160,426 V398" class="lk" marker-end="url(#ar)"/><g class="bx b-blk"><rect x="70" y="354" width="180" height="44" rx="8"/><text x="160.0" y="372.0">Block × 2（Prelude）</text><text x="160.0" y="388.0" class="s">第 1 层按基因 ID 哈希路由</text></g><path d="M160,354 V323" class="lk" marker-end="url(#ar)"/><g class="op"><circle cx="160" cy="311" r="11"/><text x="160" y="316">+</text></g><path d="M250,448 H292 V311 H173" class="lk" marker-end="url(#ar)"/><text x="296" y="300" class="lb" text-anchor="end">W·e</text><path d="M160,300 V276" class="lk" marker-end="url(#ar)"/><g class="bx b-blk loop"><rect x="70" y="220" width="180" height="56" rx="8"/><text x="160.0" y="236.0">Block × 2（Core）</text><text x="160.0" y="252.0" class="s">循环 T 次，每次独立路由器</text><text x="160.0" y="268.0" class="s">训练 T∈[2,6]，评估 T=4</text></g><path d="M70,248 H36 V311 H147" class="lk dash" marker-end="url(#ar)"/><text x="30" y="285" class="lb" text-anchor="middle">× T</text><path d="M160,220 V194" class="lk" marker-end="url(#ar)"/><g class="bx b-blk"><rect x="70" y="150" width="180" height="44" rx="8"/><text x="160.0" y="176.0">Block × 2（Coda）</text></g><path d="M160,150 V124" class="lk" marker-end="url(#ar)"/><g class="bx b-norm"><rect x="70" y="80" width="180" height="44" rx="8"/><text x="160.0" y="106.0">RMSNorm(Σ 各层 forecast)</text></g><path d="M160,80 V54" class="lk" marker-end="url(#ar)"/><g class="bx b-lin"><rect x="70" y="10" width="180" height="44" rx="8"/><text x="160.0" y="28.0">CLS → Linear → μ, log σ²</text><text x="160.0" y="44.0" class="s">z = μ + σ ⊙ ε，64 维</text></g></svg><figcaption><b>(a) 编码器</b>每次循环前把嵌入加回（W 零初始化）；输出取各层 forecast 之和。</figcaption></figure>
+      <figure class="blk-fig"><svg viewBox="0 -34 320 590" role="img" aria-label="一个 Block"><title>一个 Block</title><desc>x 经 RMSNorm 进细胞内多头自注意力得到 a；x+a 经 RMSNorm 进混合专家，与 a 相加得 f；f 经 Backcast 从 x 中减去，经 Forecast 加到累计输出 s 上。</desc><text x="160" y="548" class="lb" text-anchor="middle">x<tspan baseline-shift="sub" font-size="9">l</tspan></text><text x="292" y="548" class="lb" text-anchor="middle">s<tspan baseline-shift="sub" font-size="9">l</tspan></text><path d="M160,535 V506" class="lk" marker-end="url(#ar)"/><g class="bx b-norm"><rect x="90" y="470" width="140" height="36" rx="8"/><text x="160.0" y="492.0">RMSNorm</text></g><path d="M160,470 V444" class="lk" marker-end="url(#ar)"/><g class="bx b-attn"><rect x="80" y="384" width="160" height="60" rx="8"/><text x="160.0" y="402.0">多头自注意力</text><text x="160.0" y="418.0" class="s">只在同一细胞内</text><text x="160.0" y="434.0" class="s">4 头 × 64，QK-RMSNorm</text></g><path d="M160,384 V341" class="lk" marker-end="url(#ar)"/><g class="op"><circle cx="160" cy="330" r="11"/><text x="160" y="335">+</text></g><path d="M160,520 H44 V330 H147" class="lk" marker-end="url(#ar)"/><text x="52" y="362" class="lb" text-anchor="start">x</text><path d="M160,319 V292" class="lk" marker-end="url(#ar)"/><g class="bx b-norm"><rect x="90" y="256" width="140" height="36" rx="8"/><text x="160.0" y="278.0">RMSNorm</text></g><path d="M160,256 V230" class="lk" marker-end="url(#ar)"/><g class="bx b-moe"><rect x="80" y="176" width="160" height="54" rx="8"/><text x="160.0" y="199.0">混合专家 (MoE)</text><text x="160.0" y="215.0" class="s">4/32 路由 + 1 共享专家</text></g><path d="M160,176 V151" class="lk" marker-end="url(#ar)"/><g class="op"><circle cx="160" cy="140" r="11"/><text x="160" y="145">+</text></g><path d="M240,414 H268 V140 H173" class="lk" marker-end="url(#ar)"/><text x="272" y="280" class="lb" text-anchor="start">a</text><text x="236" y="118" class="lb" text-anchor="start">f</text><path d="M160,129 V112 H96 V96" class="lk" marker-end="url(#ar)"/><path d="M160,112 H224 V96" class="lk" marker-end="url(#ar)"/><g class="bx b-lin"><rect x="46" y="62" width="100" height="34" rx="8"/><text x="96.0" y="83.0">Backcast B</text></g><g class="bx b-lin"><rect x="174" y="62" width="100" height="34" rx="8"/><text x="224.0" y="83.0">Forecast F</text></g><path d="M96,62 V43" class="lk" marker-end="url(#ar)"/><g class="op"><circle cx="96" cy="32" r="11"/><text x="96" y="37">−</text></g><path d="M44,330 V32 H83" class="lk" marker-end="url(#ar)"/><path d="M224,62 V43" class="lk" marker-end="url(#ar)"/><g class="op"><circle cx="224" cy="32" r="11"/><text x="224" y="37">+</text></g><path d="M292,535 V32 H237" class="lk" marker-end="url(#ar)"/><path d="M96,21 V-6" class="lk" marker-end="url(#ar)"/><path d="M224,21 V-6" class="lk" marker-end="url(#ar)"/><text x="96" y="-14" class="lb" text-anchor="middle">x<tspan baseline-shift="sub" font-size="9">l+1</tspan></text><text x="224" y="-14" class="lb" text-anchor="middle">s<tspan baseline-shift="sub" font-size="9">l+1</tspan></text></svg><figcaption><b>(b) Block</b>预归一化的注意力和混合专家，N-BEATS 式残差：f 从 x 中减去（backcast），并累加到输出 s（forecast）。</figcaption></figure>
+      <figure class="blk-fig"><svg viewBox="0 0 320 556" role="img" aria-label="混合专家层"><title>混合专家层</title><desc>路由器打分，按分数加负载偏置选 4 个专家，门控按分数归一后加权求和，再加上共享专家的输出。</desc><text x="160" y="548" class="lb" text-anchor="middle">u（已归一化的 token 状态）</text><path d="M160,535 V506" class="lk" marker-end="url(#ar)"/><g class="bx b-lin"><rect x="70" y="466" width="180" height="40" rx="8"/><text x="160.0" y="490.0">路由打分 r = √softplus(W·u)</text></g><path d="M160,466 V438" class="lk" marker-end="url(#ar)"/><g class="bx b-norm"><rect x="60" y="384" width="200" height="54" rx="8"/><text x="160.0" y="399.0">选 Top-4 / 32 专家</text><text x="160.0" y="415.0" class="s">按 r + b 排序；b 为无梯度负载偏置</text><text x="160.0" y="431.0" class="s">第 1 层：按基因 ID 查固定表</text></g><path d="M160,384 V352" class="lk" marker-end="url(#ar)"/><g class="bx b-moe cold"><rect x="24" y="296" width="36" height="56" rx="6"/><text x="42" y="329" class="s">E1</text></g><g class="bx b-moe hot"><rect x="66" y="296" width="36" height="56" rx="6"/><text x="84" y="329" class="s">E7</text></g><g class="bx b-moe cold"><rect x="108" y="296" width="36" height="56" rx="6"/><text x="126" y="329" class="s">E12</text></g><g class="bx b-moe hot"><rect x="150" y="296" width="36" height="56" rx="6"/><text x="168" y="329" class="s">E19</text></g><g class="bx b-moe cold"><rect x="192" y="296" width="36" height="56" rx="6"/><text x="210" y="329" class="s">E32</text></g><text x="240" y="315" class="lb" text-anchor="middle">…</text><g class="bx b-moe"><rect x="254" y="296" width="52" height="56" rx="6"/><text x="280" y="321" class="s">共享</text><text x="280" y="337" class="s">专家</text></g><path d="M84,296 V262 H148" class="lk" marker-end="url(#ar)"/><path d="M168,296 V262 H160" class="lk"/><g class="op"><circle cx="160" cy="262" r="11"/><text x="160" y="267">Σ</text></g><text x="160" y="238" class="lb" text-anchor="middle">Σ gₖ·Eₖ(u)，gₖ = rₖ / Σ r</text><path d="M160,251 V218" class="lk"/><path d="M160,226 V198" class="lk" marker-end="url(#ar)"/><g class="op"><circle cx="160" cy="186" r="11"/><text x="160" y="191">+</text></g><path d="M280,296 V186 H173" class="lk" marker-end="url(#ar)"/><path d="M160,175 V140" class="lk" marker-end="url(#ar)"/><text x="160" y="128" class="lb" text-anchor="middle">MoE(u)</text><g class="bx b-io"><rect x="40" y="40" width="240" height="60" rx="8"/><text x="160.0" y="58.0">每个专家：SwiGLU</text><text x="160.0" y="74.0" class="s">W₂ (SiLU(W₁u) ⊙ W₃u)，隐层 256</text><text x="160.0" y="90.0" class="s">偏置每步按负载更新，无辅助 loss</text></g></svg><figcaption><b>(c) 混合专家</b>DeepSeek 式细粒度专家，负载靠偏置均衡，不用辅助损失。</figcaption></figure>
+    </div>
+    <figure class="blk-fig wide"><svg viewBox="0 0 960 320" role="img" aria-label="预训练头"><title>预训练头</title><desc>层级分类头、负二项解码器、邻域 Transformer 三个头的结构。</desc><text x="150" y="22" class="hd" text-anchor="middle">层级分类头（细胞类型、脑区）</text><g class="bx b-io"><rect x="60" y="270" width="180" height="40" rx="8"/><text x="150.0" y="294.0">z（64 维）</text></g><path d="M150,270 V246" class="lk" marker-end="url(#ar)"/><g class="bx b-lin"><rect x="60" y="206" width="180" height="40" rx="8"/><text x="150.0" y="230.0">h₀ = W z</text></g><path d="M150,206 V180" class="lk" marker-end="url(#ar)"/><g class="bx b-moe"><rect x="60" y="136" width="180" height="44" rx="8"/><text x="150.0" y="154.0">hₖ = hₖ₋₁ + SwiGLU(hₖ₋₁)</text><text x="150.0" y="170.0" class="s">k = 1 … K</text></g><path d="M150,136 V110" class="lk" marker-end="url(#ar)"/><g class="bx b-lin"><rect x="60" y="66" width="180" height="44" rx="8"/><text x="150.0" y="84.0">logitsₖ = Wₖ hₖ</text><text x="150.0" y="100.0" class="s">粗 → 细，每层一个交叉熵</text></g><text x="150" y="50" class="lb" text-anchor="middle">细胞类型 22 → 167；脑区 5 → 8 → 91</text><text x="480" y="22" class="hd" text-anchor="middle">负二项解码器（整合）</text><g class="bx b-io"><rect x="380" y="270" width="90" height="40" rx="8"/><text x="425.0" y="294.0">z</text></g><g class="bx b-emb"><rect x="490" y="270" width="90" height="40" rx="8"/><text x="535.0" y="294.0">E[批次 b]</text></g><path d="M425,270 V252 H480 V246" class="lk" marker-end="url(#ar)"/><path d="M535,270 V252 H480" class="lk"/><g class="bx b-lin"><rect x="390" y="206" width="180" height="40" rx="8"/><text x="480.0" y="230.0">[z ; E[b]] → Linear</text></g><path d="M480,206 V180" class="lk" marker-end="url(#ar)"/><g class="bx b-norm"><rect x="390" y="136" width="180" height="44" rx="8"/><text x="480.0" y="154.0">LayerNorm → SiLU → Linear</text><text x="480.0" y="170.0" class="s">512 → 全部基因</text></g><path d="M480,136 V110" class="lk" marker-end="url(#ar)"/><g class="bx b-attn"><rect x="390" y="66" width="180" height="44" rx="8"/><text x="480.0" y="84.0">ρ = softmax（只在已测基因上）</text><text x="480.0" y="100.0" class="s">x ~ NB(ℓ·ρ, θ_g)</text></g><text x="480" y="50" class="lb" text-anchor="middle">ℓ：文库大小；θ_g：每个基因的离散度</text><text x="810" y="22" class="hd" text-anchor="middle">邻域 Transformer（空间插补）</text><g class="bx b-io"><rect x="705" y="270" width="100" height="40" rx="8"/><text x="755.0" y="294.0">邻居 μⱼ</text></g><g class="bx b-emb"><rect x="815" y="270" width="100" height="40" rx="8"/><text x="865.0" y="294.0">相对坐标 Δpⱼ</text></g><path d="M755,270 V252 H810 V246" class="lk" marker-end="url(#ar)"/><path d="M865,270 V252 H810" class="lk"/><g class="bx b-lin"><rect x="720" y="202" width="180" height="44" rx="8"/><text x="810.0" y="220.0">W μⱼ + MLP(Δpⱼ)</text><text x="810.0" y="236.0" class="s">被隐藏的中心细胞用 [MASK]</text></g><path d="M810,202 V180" class="lk" marker-end="url(#ar)"/><g class="bx b-attn"><rect x="720" y="136" width="180" height="44" rx="8"/><text x="810.0" y="154.0">Transformer × 2</text><text x="810.0" y="170.0" class="s">d = 128，4 头</text></g><path d="M810,136 V110" class="lk" marker-end="url(#ar)"/><g class="bx b-lin"><rect x="720" y="66" width="180" height="44" rx="8"/><text x="810.0" y="84.0">ẑᵢ → NB 解码器 + 细胞类型头</text><text x="810.0" y="100.0" class="s">预测被隐藏细胞</text></g><text x="810" y="50" class="lb" text-anchor="middle">每组：1 个中心细胞 + 16 个邻居</text></svg><figcaption><b>(d) 预训练头</b>都读潜变量 z（或 μ），基因插补直接读编码器的 token 状态。</figcaption></figure>
     <div class="spec">
       <div><b>注意力</b><p>FlashAttention-3 变长，4 头 × 64 维；每个细胞一条序列，不跨细胞、无 padding。</p></div>
       <div><b>混合专家</b><p>32 个路由专家选 4 个 + 1 个共享专家；sqrt-softplus 路由，无辅助 loss 的偏置均衡；第一层按基因 ID 哈希路由。</p></div>
-      <div><b>五个任务</b><p>基因插补、scVI 式整合、层级细胞类型、层级脑区、空间邻居插补；v1 起按梯度等量配平。</p></div>
+      <div><b>五个任务</b><p>基因插补、scVI 式整合、层级细胞类型、层级脑区、空间邻居插补；v1 起按梯度范数均衡配平。</p></div>
       <div><b>优化</b><p>隐藏层矩阵用分组 Muon，其余 AdamW；每步 128 个解离细胞 + 16 个空间组，约 31 万 token。</p></div>
       <div><b>Infra</b><p>单张 H20 上每步 2.90 → 0.85 秒，MFU 约 16% → 50%；推理 1 万细胞约 18 秒。</p></div>
       <div><b>规模</b><p>9,400 万参数；d = 256，2 + 2×循环 + 2 层，潜变量 64 维。</p></div>
@@ -175,6 +203,8 @@
   </div>
 </footer>
 
-<script src="app.js?v=2"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}]})"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

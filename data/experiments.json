@@ -14,7 +14,7 @@
    },
    "rows": [
     {
-     "name": "梯度等量（grad_equal）",
+     "name": "梯度范数均衡",
      "base": "v0",
      "change": "每个 loss 在编码器上的梯度范数相同",
      "scores": {
@@ -44,7 +44,7 @@
      "status": "dropped"
     },
     {
-     "name": "teacher_gram",
+     "name": "教师 Gram 蒸馏",
      "base": "v0",
      "change": "对齐一个只训细胞类型的老师的细胞相似度矩阵",
      "scores": {
@@ -55,7 +55,7 @@
       "gene": 0.775,
       "spatial": 0.271
      },
-     "verdict": "生物保留 +0.15；叠加到 grad_equal 上继续测",
+     "verdict": "生物保留 +0.15；叠加到梯度范数均衡上继续测",
      "status": "candidate"
     },
     {
@@ -121,8 +121,8 @@
    ]
   },
   {
-   "title": "以 grad_equal（v1 配方）为基线",
-   "ref": "grad_equal",
+   "title": "以 v1 配方（梯度范数均衡）为基线",
+   "ref": "梯度范数均衡",
    "ref_scores": {
     "ct": 0.75,
     "rg": 0.646,
@@ -133,9 +133,9 @@
    },
    "rows": [
     {
-     "name": "+ teacher_gram",
-     "base": "grad_equal",
-     "change": "同上，加在 grad_equal 上",
+     "name": "+ 教师 Gram 蒸馏",
+     "base": "梯度范数均衡",
+     "change": "同上，加在梯度范数均衡上",
      "scores": {
       "ct": 0.761,
       "rg": 0.637,
@@ -149,7 +149,7 @@
     },
     {
      "name": "整合 ×2",
-     "base": "grad_equal",
+     "base": "梯度范数均衡",
      "change": "整合 loss 的梯度份额加倍",
      "scores": {
       "ct": 0.73,
@@ -164,7 +164,7 @@
     },
     {
      "name": "整合 ×4",
-     "base": "grad_equal",
+     "base": "梯度范数均衡",
      "change": "整合 loss 的梯度份额 ×4",
      "scores": {
       "ct": 0.697,
@@ -179,7 +179,7 @@
     },
     {
      "name": "KL 目标 60 nats",
-     "base": "grad_equal",
+     "base": "梯度范数均衡",
      "change": "KL 权重作为对偶变量，把 KL 稳在 60",
      "scores": {
       "ct": 0.77,
@@ -189,12 +189,12 @@
       "gene": 0.774,
       "spatial": 0.258
      },
-     "verdict": "小幅改善，多在波动内；与 teacher_gram 组合测试中",
+     "verdict": "小幅改善，多在波动内；与教师 Gram 蒸馏组合测试中",
      "status": "candidate"
     },
     {
      "name": "KL 目标 15 nats",
-     "base": "grad_equal",
+     "base": "梯度范数均衡",
      "change": "把 KL 压到 15",
      "scores": {
       "ct": 0.688,
@@ -209,7 +209,7 @@
     },
     {
      "name": "统一解码器",
-     "base": "grad_equal",
+     "base": "梯度范数均衡",
      "change": "三个表达出口共用一个以批次为条件的解码器",
      "scores": {
       "ct": 0.744,
@@ -224,7 +224,7 @@
     },
     {
      "name": "空间 loss ×3",
-     "base": "grad_equal",
+     "base": "梯度范数均衡",
      "change": "空间任务的梯度份额 ×3",
      "scores": {
       "ct": 0.716,
@@ -239,7 +239,7 @@
     },
     {
      "name": "空间潜空间目标",
-     "base": "grad_equal",
+     "base": "梯度范数均衡",
      "change": "被隐藏细胞的预测再对齐它自己的潜变量（JEPA 式）",
      "scores": {
       "ct": 0.743,
