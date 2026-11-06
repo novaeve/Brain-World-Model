@@ -114,44 +114,87 @@ function renderExperiments(exps, bench) {
   document.getElementById("exp-table").innerHTML = head + body;
 }
 
-const ma5 = (cs) => cs.map((_, i) => (i < 4 ? null : cs.slice(i - 4, i + 1).reduce((a, c) => a + c[4], 0) / 5));
+// Loss board: a watchlist (one row per loss) and a detail chart for the selected row.
+const fmtL = (v) => (v >= 1000 ? Math.round(v).toLocaleString() : v >= 10 ? v.toFixed(1) : v.toFixed(3));
+const at = (pts, step) => pts.reduce((a, p) => (Math.abs(p[0] - step) < Math.abs(a[0] - step) ? p : a));
+const RANGES = [["全程", 0], ["1 万步后", 10000], ["2 万步后", 20000]];
 
-function kline(series, window) {
-  const cs = series.v1, prev = series.v0;
-  const W = 340, H = 180, L = 40, R = 6, T = 6, B = 20;
-  const all = cs.concat(prev);
-  const lo = Math.log10(Math.min(...all.map((c) => c[3])) * 0.97), hi = Math.log10(Math.max(...all.map((c) => c[2])) * 1.03);
-  const y = (v) => T + (H - T - B) * (1 - (Math.log10(v) - lo) / (hi - lo));
-  const step = (W - L - R) / cs.length, x = (i) => L + step * (i + 0.5);
-  let svg = "";
+function spark(pts) {
+  const W = 64, H = 28, xs = pts.map((p) => p[0]), ys = pts.map((p) => Math.log10(p[1]));
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const d = pts.map((p, i) => `${((xs[i] - x0) / (x1 - x0)) * W},${2 + (H - 4) * (1 - (ys[i] - y0) / (y1 - y0 || 1))}`).join(" ");
+  return `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline class="spark" points="${d}"/></svg>`;
+}
+
+// Mean of the last 1,000 steps against the 1,000 steps that ended 5,000 steps earlier.
+const avg = (pts, end, n = 4) => { const i = pts.findIndex((p) => p[0] === end); return pts.slice(i - n + 1, i + 1).reduce((a, p) => a + p[1], 0) / n; };
+function trend(pts, span = 5000) {
+  const end = pts[pts.length - 1][0];
+  const r = avg(pts, end) / avg(pts, at(pts, end - span)[0]) - 1;
+  return { r, cls: Math.abs(r) < 0.005 ? "flat" : r < 0 ? "down" : "up", txt: `${r < 0 ? "−" : "+"}${Math.abs(r * 100).toFixed(1)}%` };
+}
+
+function renderDetail(s, from) {
+  const v1 = s.v1.filter((p) => p[0] >= from), v0 = s.v0.filter((p) => p[0] >= from);
+  const W = 640, H = 300, L = 52, R = 12, T = 12, B = 26;
+  const all = v1.concat(v0).map((p) => p[1]);
+  const lo = Math.log10(Math.min(...all) * 0.97), hi = Math.log10(Math.max(...all) * 1.03);
+  const x = (st) => L + ((W - L - R) * (st - from)) / (30000 - from), y = (v) => T + (H - T - B) * (1 - (Math.log10(v) - lo) / (hi - lo));
+  let g = `<defs><linearGradient id="area1" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--cajal)" stop-opacity=".22"/><stop offset="1" stop-color="var(--cajal)" stop-opacity="0"/></linearGradient></defs>`;
   for (let t = 0; t <= 4; t++) {
     const v = 10 ** (lo + ((hi - lo) * t) / 4);
-    const lab = v >= 100 ? v.toFixed(0) : v >= 1 ? v.toFixed(2) : v.toFixed(3);
-    svg += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="tk" x="${L - 4}" y="${y(v) + 3}" text-anchor="end">${lab}</text>`;
+    g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="tk" x="${L - 8}" y="${y(v) + 3.5}" text-anchor="end">${fmtL(v)}</text>`;
   }
-  cs.forEach(([s, o, h, l, c], i) => {
-    const cls = c <= o ? "down" : "up", bw = Math.max(step * 0.62, 1.5);
-    const top = y(Math.max(o, c)), bot = y(Math.min(o, c));
-    svg += `<g class="${cls}"><title>v1 ${s}–${s + window} 步　开 ${o} 高 ${h} 低 ${l} 收 ${c}</title><line x1="${x(i)}" x2="${x(i)}" y1="${y(h)}" y2="${y(l)}" stroke-width="1"/><rect x="${x(i) - bw / 2}" y="${top}" width="${bw}" height="${Math.max(bot - top, 1)}"/></g>`;
+  for (let st = from; st <= 30000; st += 5000) g += `<text class="tk" x="${x(st)}" y="${H - 6}" text-anchor="middle">${st ? (st / 10000).toFixed(st % 10000 ? 1 : 0) + " 万" : "0"}</text>`;
+  const line = (pts) => pts.map((p) => `${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join(" ");
+  g += `<polygon class="a1" points="${x(v1[0][0])},${H - B} ${line(v1)} ${x(v1[v1.length - 1][0])},${H - B}"/>`;
+  g += `<polyline class="l0" points="${line(v0)}"/><polyline class="l1" points="${line(v1)}"/>`;
+  g += `<g id="xh" style="display:none"><line class="xh" y1="${T}" y2="${H - B}"/><circle class="dot0" r="4"/><circle class="dot1" r="4.5"/></g>`;
+  g += `<rect id="hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/>`;
+  const last1 = avg(s.v1, s.v1[s.v1.length - 1][0]), last0 = avg(s.v0, s.v0[s.v0.length - 1][0]), r = last1 / last0 - 1;
+  const box = document.getElementById("detail");
+  box.innerHTML = `<div class="detail-head"><div><h3>${esc(s.name)} · ${esc(s.unit)}</h3><div class="big">${fmtL(last1)}</div>
+    <div class="cmp">最后 1,000 步均值；v0 同期 ${fmtL(last0)}，v1 ${r < 0 ? "低" : "高"} ${Math.abs(r * 100).toFixed(1)}%</div></div>
+    <div class="seg" role="group" aria-label="范围">${RANGES.map(([n, f]) => `<button type="button" data-from="${f}" class="${f === from ? "on" : ""}">${n}</button>`).join("")}</div></div>
+    <div class="legend" style="margin:14px 0 0"><span><i class="l1"></i>v1</span><span><i class="l0" style="border-top-style:dashed"></i>v0</span></div>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(s.name)}：v1 收于 ${fmtL(last1)}，v0 收于 ${fmtL(last0)}">${g}</svg><div class="tip" id="tip">移动鼠标查看每一步</div>`;
+  box.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => renderDetail(s, +b.dataset.from)));
+  const svg = box.querySelector("svg"), xh = svg.querySelector("#xh"), tip = box.querySelector("#tip");
+  svg.querySelector("#hit").addEventListener("pointermove", (e) => {
+    const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const st = from + ((p.x - L) / (W - L - R)) * (30000 - from);
+    const a = at(v1, st), b = at(v0, st);
+    xh.style.display = "";
+    xh.querySelector("line").setAttribute("x1", x(a[0])); xh.querySelector("line").setAttribute("x2", x(a[0]));
+    const [d0, d1] = xh.querySelectorAll("circle");
+    d1.setAttribute("cx", x(a[0])); d1.setAttribute("cy", y(a[1])); d0.setAttribute("cx", x(b[0])); d0.setAttribute("cy", y(b[1]));
+    tip.innerHTML = `第 ${(a[0] - 125).toLocaleString()}–${(a[0] + 125).toLocaleString()} 步均值　<b>v1 ${fmtL(a[1])}</b>　v0 ${fmtL(b[1])}`;
   });
-  const poly = (vals, cls) => `<polyline class="${cls}" points="${vals.map((v, i) => (v == null ? "" : `${x(i)},${y(v)}`)).filter(Boolean).join(" ")}"/>`;
-  svg += poly(ma5(prev), "ma0") + poly(ma5(cs), "ma");
-  [0, 10000, 20000, 30000].forEach((s) => {
-    const i = Math.min(cs.length - 1, Math.round(s / window));
-    svg += `<text class="tk" x="${x(i)}" y="${H - 5}" text-anchor="middle">${s / 10000 ? s / 10000 + " 万" : "0"}</text>`;
-  });
-  const end = (c) => c[c.length - 1][4], f = (v) => (v < 10 ? v.toFixed(3) : v.toFixed(0));
-  const p = el("div", { class: "kpanel" });
-  p.innerHTML = `<h3>${esc(series.name)}<em>${f(end(cs))}<small>v0 ${f(end(prev))}</small></em></h3><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(series.name)}：v1 收于 ${f(end(cs))}，v0 收于 ${f(end(prev))}">${svg}</svg>`;
-  return p;
+  svg.querySelector("#hit").addEventListener("pointerleave", () => { xh.style.display = "none"; tip.textContent = "移动鼠标查看每一步"; });
 }
 
 function renderLoss(loss) {
-  const grid = document.getElementById("kline-grid");
-  loss.series.forEach((s) => grid.appendChild(kline(s, loss.window)));
+  const list = document.getElementById("watch");
+  list.innerHTML = loss.series.map((s, i) => {
+    const t = trend(s.v1);
+    return `<li tabindex="0" data-i="${i}" class="${i ? "" : "on"}" aria-selected="${!i}"><div class="nm"><b>${esc(s.name)}</b><span>${esc(s.unit)}</span></div>
+      <div style="color:${t.cls === "up" ? "var(--bad)" : "var(--good)"}">${spark(s.v1)}</div>
+      <div class="q"><b>${fmtL(avg(s.v1, s.v1[s.v1.length - 1][0]))}</b><span class="pill ${t.cls}" title="最后 1,000 步均值相对 5,000 步前">${t.txt}</span></div></li>`;
+  }).join("");
+  const pick = (li) => {
+    list.querySelectorAll("li").forEach((n) => { n.classList.toggle("on", n === li); n.setAttribute("aria-selected", n === li); });
+    renderDetail(loss.series[+li.dataset.i], 0);
+  };
+  list.querySelectorAll("li").forEach((li) => {
+    li.addEventListener("click", () => pick(li));
+    li.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(li); } });
+  });
+  renderDetail(loss.series[0], 0);
+  document.getElementById("loss-foot").textContent = `Cajal v1 与 v0 各训练 3 万步，每点为 ${loss.window} 步的均值，纵轴对数刻度；数值与小标签为最后 1,000 步的均值及其相对 5,000 步前的变化。更新于 ${loss.updated}。`;
 }
 
-const SHARE = ["var(--teal)", "var(--kill)", "var(--peri)", "var(--lilac)", "var(--accent)"];
+const SHARE = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)"];
 
 function shareChart(run, tasks) {
   const pts = run.points, W = 460, H = 190, L = 34, R = 8, T = 8, B = 22;

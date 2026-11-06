@@ -7,7 +7,7 @@
 <meta name="description" content="Brain World Model 当前版本 Cajal：一个编码器在 100 万个人脑细胞上联合预训练五个任务，在未见过的细胞上与每个任务最强的对手比较。">
 <link rel="icon" href="assets/logo.svg">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<link rel="stylesheet" href="styles.css?v=3">
+<link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
 <header class="top">
@@ -122,9 +122,11 @@
       <div><b>84 → 25</b><span>训练结束时的 KL（nats）</span></div>
     </div>
     <h3 class="h3">训练 loss</h3>
-    <div class="legend"><span><i style="background:var(--down)"></i>v1 下降</span><span><i style="background:var(--up)"></i>v1 上升</span><span><i class="ma"></i>v1 MA5</span><span><i class="ma0"></i>v0 MA5</span></div>
-    <div class="kline-grid" id="kline-grid"></div>
-    <p class="foot">每根蜡烛 500 步（开、高、低、收），纵轴对数刻度。右上角为最后收盘值。</p>
+    <div class="board-wrap">
+      <ul class="watch" id="watch" aria-label="各项 loss"></ul>
+      <div class="detail" id="detail"></div>
+    </div>
+    <p class="foot" id="loss-foot"></p>
   </div>
 </section>
 
@@ -205,6 +207,6 @@
 
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}]})"></script>
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
